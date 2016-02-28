@@ -50,6 +50,7 @@ func main() {
 	router.HandleFunc("/articles/{uid:[0-9a-fA-F\\-]+}", commonWrapper(GetArticlesForUser)).Methods("GET")
 	router.HandleFunc("/su/post_article", commonWrapper(AddArticleToFeed)).Methods("POST")
 	router.HandleFunc("/su/get_feeds_of_user/{suid:[0-9a-fA-F\\-]+}/{uid:[0-9a-fA-F\\-]+}", commonWrapper(GetFeedsOfUser)).Methods("GET")
+	router.HandleFunc("/su/get_users_of_feed/{suid:[0-9a-fA-F\\-]+}/{fid:[0-9a-fA-F\\-]+}", commonWrapper(GetUsersOfFeed)).Methods("GET")
 	
 	http.Handle("/", router)
 

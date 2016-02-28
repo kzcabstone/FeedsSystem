@@ -94,6 +94,7 @@ func GetArticlesForUser(w http.ResponseWriter, r *http.Request) interface{} {
 type add_article_request struct {
 	Suid	string		`json:"suid"`
 	Fid 	string		`json:"fid"`
+	Articles []string	`json:"articles"`
 }
 
 type add_article_response struct {
@@ -106,33 +107,78 @@ func AddArticleToFeed(w http.ResponseWriter, r *http.Request) interface{} {
 	u := new(add_article_response)
 	if err := jsondecoder.Decode(&i); err != nil {
 		u.Status = "Error"
-		dumpHttpRequest(r);
+		dumpHttpRequest(r)
 		return u
 	}
+
+	if !checkSUAuth(i.Suid) {
+		log.Printf("AddArticleToFeed: auth failed %s", i.Suid)
+		return nil
+	}
+	
 	u.Status = "OK"
 	log.Printf("AddArticleToFeed: suid %s, fid %s", i.Suid, i.Fid)
+	for _, article := range i.Articles {
+		log.Printf("	%s", article)
+	}
 	return u
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
-type get_feeds_of_user_request struct {
-	Suid	string		`json:"suid"`
-	Uid 	string		`json:"uid"`
-}
-
 type get_feeds_of_user_response struct {
 	Fids 	[]string 	`json:"feeds"`	
 }
 
 func GetFeedsOfUser(w http.ResponseWriter, r *http.Request) interface{} {
-	jsondecoder := json.NewDecoder(r.Body)
-	var i get_feeds_of_user_request
-	u := new(get_feeds_of_user_response)
-	if err := jsondecoder.Decode(&i); err != nil {
-		dumpHttpRequest(r);
-		return u
+	vars := mux.Vars(r)
+	if vars["suid"] == "" {
+		log.Printf("GetArticlesForUser: invalid request, no suid. Ignore")
+		return nil
 	}
-	log.Printf("GetFeedsOfUser: suid %s, uid %s", i.Suid, i.Uid)
+	if vars["uid"] == "" {
+		log.Printf("GetArticlesForUser: invalid request, no uid. Ignore")
+		return nil
+	}
+
+	suid := vars["suid"]
+	if !checkSUAuth(suid) {
+		log.Printf("GetArticlesForUser: auth failed %s", suid)
+		return nil
+	}
+
+	uid := vars["uid"]
+	u := new(get_feeds_of_user_response)
+	
+	log.Printf("GetFeedsOfUser: suid %s, uid %s", suid, uid)
+	return u
+}
+
+////////////////////////////////////////////////////////////////////////////////
+type get_users_of_feed_response struct {
+	Uids 	[]string 	`json:"users"`	
+}
+
+func GetUsersOfFeed(w http.ResponseWriter, r *http.Request) interface{} {
+	vars := mux.Vars(r)
+	if vars["suid"] == "" {
+		log.Printf("GetUsersOfFeed: invalid request, no suid. Ignore")
+		return nil
+	}
+	if vars["fid"] == "" {
+		log.Printf("GetUsersOfFeed: invalid request, no fid. Ignore")
+		return nil
+	}
+
+	suid := vars["suid"]
+	if !checkSUAuth(suid) {
+		log.Printf("GetUsersOfFeed: auth failed %s", suid)
+		return nil
+	}
+
+	fid := vars["fid"]
+	u := new(get_users_of_feed_response)
+	
+	log.Printf("GetFeedsOfUser: suid %s, fid %s", suid, fid)
 	return u
 }
