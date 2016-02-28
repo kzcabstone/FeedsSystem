@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"log"
+	"strconv"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -26,8 +27,18 @@ func UserSubscribe(w http.ResponseWriter, r *http.Request) interface{} {
 		dumpHttpRequest(r);
 		return u
 	}
-	u.Status = "OK"
-	log.Printf("UserSubscribe: uid %s, fid %s", i.Uid, i.Fid)
+
+	var result_channel chan string = make(chan string, 2) // small size just for receiving status
+	cmd := user_feed_mutator_cmd{Cmdtype: 1, Uid: i.Uid, Fid: i.Fid, Result_channel: result_channel}
+	user_feed_mutator_channel <- cmd
+
+	status := <- result_channel
+	if status == "OK" {
+		u.Status = "OK"
+	} else {
+		u.Status = "UserSubscribe: Server Internal Error " + status
+	}
+	log.Printf("UserSubscribe: uid %s, fid %s, status %s", i.Uid, i.Fid, status)
 	return u
 }
 
@@ -40,8 +51,18 @@ func UserUnsubscribe(w http.ResponseWriter, r *http.Request) interface{} {
 		dumpHttpRequest(r);
 		return u
 	}
-	u.Status = "OK"
-	log.Printf("UserUnSubscribe: uid %s, fid %s", i.Uid, i.Fid)
+	
+	var result_channel chan string = make(chan string, 2)
+	cmd := user_feed_mutator_cmd{Cmdtype: 2, Uid: i.Uid, Fid: i.Fid, Result_channel: result_channel}
+	user_feed_mutator_channel <- cmd
+
+	status := <- result_channel
+	if status == "OK" {
+		u.Status = "OK"
+	} else {
+		u.Status = "Server Internal Error " + status
+	}
+	log.Printf("UserUnsubscribe: uid %s, fid %s, status %s", i.Uid, i.Fid, status)
 	return u
 }
 
@@ -54,7 +75,25 @@ type list_feeds_response struct {
 func GetSupportedFeeds(w http.ResponseWriter, r *http.Request) interface{} {
 	u := new(list_feeds_response)
 	
-	log.Printf("GetSupportedFeeds: nothing so far")
+	var result_channel chan string = make(chan string, conf.FeedsResultChanDepth)
+	cmd := article_feed_mutator_cmd{Cmdtype: 4, Aid: "-1", Fid: "-1", Result_channel: result_channel}
+	article_feed_mutator_channel <- cmd
+
+	tmp := <- result_channel
+	cnt, err := strconv.Atoi(tmp) 
+	if err != nil {
+		log.Printf("Server Internal Error. Invalid feeds count %s", tmp)
+	} else if cnt < 0 {
+		log.Printf("Server Internal Error. Invalid feeds count %s", tmp)
+	} else {
+		u.Fids = make([]string, cnt)
+		for i:=0; i < cnt; i++ {
+			fid := <- result_channel
+			u.Fids[i] = fid
+		}
+	}
+	
+	log.Printf("GetSupportedFeeds: got %d feeds", cnt)
 	return u
 }
 
@@ -79,16 +118,80 @@ func GetArticlesForUser(w http.ResponseWriter, r *http.Request) interface{} {
 	u := new(get_articles_response)
 	log.Printf("GetArticlesForUser: uid %s", uid)
 
-	// Send back the list
-	tmpArticles := [...]string{"article1", "article2", "article3"}
-	u.ArticlesIds = make([]string, len(tmpArticles))
-	for i, article := range tmpArticles {
-		u.ArticlesIds[i] = article
+	// #### step 1: get all feeds of this user
+	fids :=	getFeedsForUser(uid)
+	log.Printf("GetArticlesForUser: fids len %d", len(fids))
+	
+	// #### step 2: get all articles for each of the fid
+	if len(fids) > 0 {
+		//var articles []string
+		for i:=0; i < len(fids); i++ {
+			tmp := getArticlesForFeed(fids[i])//articles[:])
+			if tmp != nil {
+				u.ArticlesIds = append(u.ArticlesIds, tmp...)
+			}
+		}
+		/*
+		// Send back the list
+		u.ArticlesIds = make([]string, len(articles))
+		for i, article := range articles {
+			u.ArticlesIds[i] = article
+		}
+		*/
 	}
 
+	log.Printf("GetArticlesForUser: uid %s, got %d articles", uid, len(u.ArticlesIds))
 	return u
 }
 
+func getFeedsForUser(uid string) []string {
+	var result_channel chan string = make(chan string, conf.FeedsResultChanDepth)
+	cmd := user_feed_mutator_cmd{Cmdtype: 3, Uid: uid, Fid: "-1", Result_channel: result_channel}
+	user_feed_mutator_channel <- cmd
+
+	tmp := <- result_channel
+	cnt, err := strconv.Atoi(tmp) 
+	if err != nil {
+		log.Printf("getFeedsForUser: Server Internal Error. Invalid feeds count %s", tmp)
+		return nil
+	} else if cnt < 0 {
+		log.Printf("getFeedsForUser: Server Internal Error. %s", tmp)
+		return nil
+	} else {
+		fids := make([]string, cnt)
+		for i:=0; i < cnt; i++ {
+			fid:= <- result_channel
+			// we read as many times as possible to avoid blocking the mutator
+			fids[i] = fid
+		}
+		log.Printf("getFeedsForUser: got %d feeds for user %s", len(fids), uid)
+		return fids
+	}
+}
+
+func getArticlesForFeed(fid string) []string {
+	var result_channel chan string = make(chan string, conf.ArticlesResultChanDepth)
+	cmd := article_feed_mutator_cmd{Cmdtype: 3, Aid: "-1", Fid: fid, Result_channel: result_channel}
+	article_feed_mutator_channel <- cmd
+
+	tmp := <- result_channel
+	cnt, err := strconv.Atoi(tmp) 
+	if err != nil {
+		log.Printf("getArticlesForFeed: Server Internal Error. Invalid articles count %s", tmp)
+		return nil
+	} else if cnt < 0 {
+		log.Printf("getArticlesForFeed: Server Internal Error. %s", tmp)
+		return nil
+	} else {
+		articles := make([]string, cnt)
+		for i := 0; i < cnt; i++ {
+			aid := <- result_channel
+			articles[i] = aid
+		}
+		log.Printf("getArticlesForFeed: got %d articles for feed %s", cnt, fid)
+		return articles
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 type add_article_request struct {
@@ -115,12 +218,21 @@ func AddArticleToFeed(w http.ResponseWriter, r *http.Request) interface{} {
 		log.Printf("AddArticleToFeed: auth failed %s", i.Suid)
 		return nil
 	}
-	
-	u.Status = "OK"
-	log.Printf("AddArticleToFeed: suid %s, fid %s", i.Suid, i.Fid)
+
+
+	log.Printf("AddArticlesToFeed: suid %s, fid %s", i.Suid, i.Fid)
 	for _, article := range i.Articles {
-		log.Printf("	%s", article)
+		var result_channel chan string = make(chan string, 1)
+		cmd := article_feed_mutator_cmd{Cmdtype: 1, Aid: article, Fid: i.Fid, Result_channel: result_channel}
+		article_feed_mutator_channel <- cmd
+		status := <- result_channel
+		if status != "OK" {
+			u.Status = "Server Internal Error " + status
+			return u
+		}
 	}
+
+	u.Status = "OK"
 	return u
 }
 
@@ -149,8 +261,10 @@ func GetFeedsOfUser(w http.ResponseWriter, r *http.Request) interface{} {
 
 	uid := vars["uid"]
 	u := new(get_feeds_of_user_response)
+
+	u.Fids = getFeedsForUser(uid)
 	
-	log.Printf("GetFeedsOfUser: suid %s, uid %s", suid, uid)
+	log.Printf("GetFeedsOfUser: suid %s, uid %s, count of feeds %d", suid, uid, len(u.Fids))
 	return u
 }
 

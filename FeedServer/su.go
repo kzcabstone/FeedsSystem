@@ -1,7 +1,7 @@
 package main
 
 func checkSUAuth(suid string) bool {
-	if suid == "su337" {
+	if suid == conf.Suid {
 		return true
 	} else {
 		return false

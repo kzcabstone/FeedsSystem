@@ -11,7 +11,13 @@ import (
 
 type config struct {
 	HttpPort int `json:"http_port"`
+	CmdChanDepth int `json:"cmd_channel_depth"`
+	FeedsResultChanDepth int `json:"feeds_result_channel_depth"`
+	ArticlesResultChanDepth int `json:"articles_result_channel_depth"`
+	Suid 	string `json:"su_id"`
+	Datafile string `json:"datafile"`
 }
+var conf config
 
 func commonWrapper(f func(http.ResponseWriter, *http.Request) interface{}) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -25,7 +31,6 @@ func commonWrapper(f func(http.ResponseWriter, *http.Request) interface{}) func(
 func main() {
 
 	/* read configuration */
-	var conf config
 	file, err := os.Open("config.json")
 	defer file.Close()
 
@@ -42,6 +47,8 @@ func main() {
 		}
 	}
 
+	initialize()
+
 	router := mux.NewRouter()
 	// Each of these handler funcs would be called inside a go routine
 	router.HandleFunc("/supported_feeds", commonWrapper(GetSupportedFeeds)).Methods("GET")
@@ -50,11 +57,13 @@ func main() {
 	router.HandleFunc("/articles/{uid:[0-9a-fA-F\\-]+}", commonWrapper(GetArticlesForUser)).Methods("GET")
 	router.HandleFunc("/su/post_article", commonWrapper(AddArticleToFeed)).Methods("POST")
 	router.HandleFunc("/su/get_feeds_of_user/{suid:[0-9a-fA-F\\-]+}/{uid:[0-9a-fA-F\\-]+}", commonWrapper(GetFeedsOfUser)).Methods("GET")
-	router.HandleFunc("/su/get_users_of_feed/{suid:[0-9a-fA-F\\-]+}/{fid:[0-9a-fA-F\\-]+}", commonWrapper(GetUsersOfFeed)).Methods("GET")
+	//router.HandleFunc("/su/get_users_of_feed/{suid:[0-9a-fA-F\\-]+}/{fid:[0-9a-fA-F\\-]+}", commonWrapper(GetUsersOfFeed)).Methods("GET")
 	
 	http.Handle("/", router)
 
 	log.Println(fmt.Sprintf("Listening at port %d ...", conf.HttpPort))
 	http.ListenAndServe(fmt.Sprintf(":%d", conf.HttpPort), router)
 	log.Println("Done! Exiting...")
+
+	uninitialize()
 }

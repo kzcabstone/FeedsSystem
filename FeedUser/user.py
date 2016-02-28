@@ -8,7 +8,7 @@ def usage():
 	print (" 	    user -i 25 -u 3   ==>  unsubscribe user 25 from feed 3")
 	print ("		user -i 25 -p     ==>  print all feeds provided by server")
 	print ("		user -i 25		  ==>  loop & get live feeds for 25")
-	print ("		user -s 192.168.0.1 -i 25 ==>  instead of default localhost:8035, connects to server 192.168.0.1 and loop & get live feeds for 25")
+	print ("		user -a 192.168.0.1 -i 25 ==>  instead of default localhost:8035, connects to server 192.168.0.1 and loop & get live feeds for 25")
 
 def subscribe(ip, userid, feedid):
 	print ("Subscribe {0} to feed {1}".format(userid, feedid))
@@ -53,7 +53,7 @@ def pollfeeds(ip, userid):
 
 def main():
 	argparser = argparse.ArgumentParser(description="User for feed system")
-	argparser.add_argument("-s", "--serveraddr", help="server address", default="http://localhost:8035")
+	argparser.add_argument("-a", "--addr", help="server address", default="http://localhost:8035")
 	argparser.add_argument("-i", "--id", help='userid', required=True)
 	argparser.add_argument("-p", "--printfeeds", help="print all supported feeds", action='store_true')
 	group = argparser.add_mutually_exclusive_group()
@@ -61,17 +61,17 @@ def main():
 	group.add_argument('-u', '--unsubscribe', help='feedid to unsubscribe from')
 
 	args = argparser.parse_args()
-	print("Server ip addr ", args.serveraddr)
+	print("Server ip addr ", args.addr)
 
 	userid = args.id
 	if args.subscribe:
-		subscribe(args.serveraddr, userid, args.subscribe)
+		subscribe(args.addr, userid, args.subscribe)
 	elif args.unsubscribe:
-		unsubscribe(args.serveraddr, userid, args.unsubscribe)
+		unsubscribe(args.addr, userid, args.unsubscribe)
 	elif args.printfeeds:
-		print_supported_feeds(args.serveraddr)
+		print_supported_feeds(args.addr)
 	else:
-		pollfeeds(args.serveraddr, userid)
+		pollfeeds(args.addr, userid)
 	return 0
 
 
