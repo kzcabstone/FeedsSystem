@@ -1,0 +1,88 @@
+######################
+Getting Started
+######################
+
+1. What is this?
+This is a proof of concept feed system implemented in two days using Golang. 
+It includes a server that talks RESTful, and a python client, plus a bunch of shell scripts to help running the clients.
+And it's based on clients pulling. It does NOT push to clients.
+
+2. How to compile?
+Set GOPATH to a folder you like
+Then go to $GOPATH/src/github.com/
+Create folder gorilla/
+git clone https://github.com/gorilla/mux.git
+git clone https://github.com/gorilla/context.git
+
+Then https://github.com/kzcabstone/FeedsSystem.git
+
+Go to FeedServer folder, run "go build"
+
+3. How to start the server?
+After build, run "./FeedServer", by default it'll listen on http://localhost:8035
+
+4. How to run the clients?
+check user.py and super_user.py for details
+But here are some examples:
+	## To see all available feeds
+	./print_all_supported_feeds.sh
+	## To subscribe user 31 to feed 35
+	./subscribe.sh 31 35
+	## To unsubscribe user 2 from feed 35
+	./unsubscribe.sh 2 35
+	## To pull live feeds of user 25. It'll print all article ids that are in the feeds user 25 subscribed
+	./pull_user_feeds.sh 25
+	## Add 10 articles to feed27, the articles id would be article27-0 to article27-9
+	./post_article_every_5_second.sh 27
+	## To tell server to save its state to file
+	./save_server_state.sh
+
+
+######################
+Inside
+######################
+1. What does the server have?
+    * Everything(user, feed, article) is an id, to reduce the overhead of data accessing and network communication. This would also work once introduces bigger items(pictures, videos etc.)  to system. 
+	* It's concurrent, in term of serving web requests. Each received request is served by a go routine.
+	* It deals with users, feeds and articles
+			Clients can subscribe/unsubscribe to/from a feed
+			Clients can see all available feeds
+			Clients can pull all articles in his/her feeds
+			Articles can be added to a feed
+	* Its state are all in memory, not relying on file or database.
+	* Data accessing is thread safe. Implemented using GO's channels. 
+			One thread is responsible for reading/writing user data
+			Another thread is responsible for reading/writing feed data
+			All other threads send their data requests to the above 2 threads through channels
+	* It's capable of serializing/deserializing to/from a txt file (JSON format)
+	* Serializing is on demand (through save_server_state.sh)
+	* Deserializing is automatic on start if the file is found
+	* No live tcp connections are kept by the server
+
+2. What does the server NOT have?
+	* id validation (right now it depends on human to not input invalid ids)
+	* User register/login. (A new user is created when he/she tries to subscribe to a feed)
+	* Feed creation. (A new feed is created when first article is being added to it)
+	* Pull articles by timestamp
+	* Delete article from feed
+	* DB access
+
+#################################
+Potential improvements to scale
+#################################
+1. Save/load state from a DB cluster
+	* For performance, the state should still be in memory when server is running. So the server should acts like a write through memcache. And let all state updates reach DB cluster concurrently.
+	* Loading state from DB cluster makes the server possible to be sharded and run in cluster mode.
+2. Timestamp based id generation
+	* So client only have to send a timestamp, then server would know what articles need to be sent to this client
+3. Better data access model for higher performance concurrency
+	* Right now 1 thread is dealing with 1 map of all_users, and a 2nd thread is dealing with the map of all_feeds
+	* It's safe but overkill. We should implement a better data structure so that only threads that are accessing same user/feed are mutual exclusive
+			e.g.    subscibe user 3 to feed 5   NO CONFLICT WITH 	subscribe user 20 to feed 11
+					subscibe user 3 to feed 5   MUTUAL EXCLUSIVE WITH 	subscribe user 3 to feed 11
+	* A consistent data structure needs to be used so a user/feed is saved at a fixed location regardless of write ops to other users/feeds
+	* Maps might be rehashing from time to time while its size increases/decreases
+4. Use reader writer locks so that user concurrency can happen
+
+
+
