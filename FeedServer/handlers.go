@@ -296,3 +296,36 @@ func GetUsersOfFeed(w http.ResponseWriter, r *http.Request) interface{} {
 	log.Printf("GetFeedsOfUser: suid %s, fid %s", suid, fid)
 	return u
 }
+
+////////////////////////////////////////////////////////////////////////////////
+type save_state_request struct {
+	Suid	string		`json:"suid"`
+}
+
+type save_state_response struct {
+	State  string     	`json:"state"`	
+}
+
+func SaveServerState(w http.ResponseWriter, r *http.Request) interface{} {
+	jsondecoder := json.NewDecoder(r.Body)
+	var i save_state_request
+	u := new(save_state_response)
+	if err := jsondecoder.Decode(&i); err != nil {
+		u.State = "Error"
+		dumpHttpRequest(r)
+		return u
+	}
+
+	if !checkSUAuth(i.Suid) {
+		log.Printf("SaveServerState: auth failed %s", i.Suid)
+		return nil
+	}
+
+	b, e := serialize()
+	if e == nil {
+		u.State = string(b)
+	} else {
+		u.State = "error"
+	}
+	return u
+}

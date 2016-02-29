@@ -1,0 +1,42 @@
+<html>
+<script type="text/javascript" src="http://code.jquery.com/jquery-1.3.2.min.js"></script>
+<p id="demo">demo</p><br><br>
+
+Userid: <input type="text" id="usrid" value="1"><br>
+Refresh Interval: <input type="text" id="interval" value="5"> seconds <br>
+
+<div id="display">aaaa</div>
+
+<script type="text/javascript">
+
+function getArticles(){
+ 	var path = "http://localhost:8035/articles/" + $('#usrid').val();
+	$.getJSON(path, function( data ) {
+		var items = "";
+		$.each( data, function( key, val ) {
+		    items += ("<li id='" + key + "'>" + val + "</li><br>" );
+			$("div").html(items);
+		});
+		 
+	});
+}
+
+$('#usrid').change(function() { 
+	$('#demo').text("get articles for user " + $('#usrid').val() + " every " + $('#interval').val() + " seconds")	
+});
+$('#interval').change(function() { 
+	$('#demo').text("get articles for user " + $('#usrid').val() + " every " + $('#interval').val() + " seconds")	
+});
+
+$(document).ready(function(){
+    getArticles(); // This will run on page load
+	setInterval(function(){
+    		getArticles() // this will run after every 5 seconds
+		}, $('#interval').val() * 1000);
+	$("#demo").text("get articles for user " + $('#usrid').val() + " every " + $('#interval').val() + " seconds");
+});
+	
+
+</script>
+
+</html>

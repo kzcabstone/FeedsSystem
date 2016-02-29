@@ -47,12 +47,23 @@ def postArticle(ip, suid, param):
 	print(resp.json())
 	print("Done")
 
+def saveServerState(ip, suid):
+	print ("Save server state: ")	
+	path = "{0}/su/save_server_state".format(ip.rstrip('\\'));
+	req_json = {"suid": suid}
+	resp = requests.post(path, data=json.dumps(req_json), headers={'Content-Type':'application/json'})
+	if resp.status_code not in (200, 201):
+		print("Status code", resp.status_code)
+	print(resp.json())
+	print("Done")
+
 
 def main():
 	argparser = argparse.ArgumentParser(description="Super User for feed system")
 	argparser.add_argument("-s", "--serveraddr", help="server address", default="http://localhost:8035")
 	argparser.add_argument("-i", "--id", help='superuserid', required=True)
 	argparser.add_argument("-p", "--postarticle", help="<feedid,article1,article2,...> feedid is the feed to post these articles to")
+	argparser.add_argument("-t", '--saveserverstate', help='triggers the server to save its state into a json string', action='store_true')
 	#group = argparser.add_mutually_exclusive_group()
 	argparser.add_argument("-l", '--listfeeds', help='userid to list all feeds on')
 	#group.add_argument('-f', '--findusers', help='feedid to list all subscribed users')
@@ -63,6 +74,8 @@ def main():
 	suid = args.id
 	if args.listfeeds:
 		listFeeds(args.serveraddr, suid, args.listfeeds)
+	elif args.saveserverstate:
+		saveServerState(args.serveraddr, suid)
 	#elif args.findusers:
 		#findUsers(args.serveraddr, suid, args.findusers)
 	#	pass

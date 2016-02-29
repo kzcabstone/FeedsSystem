@@ -55,6 +55,7 @@ func main() {
 	router.HandleFunc("/subscribe", commonWrapper(UserSubscribe)).Methods("POST")
 	router.HandleFunc("/unsubscribe", commonWrapper(UserUnsubscribe)).Methods("POST")
 	router.HandleFunc("/articles/{uid:[0-9a-fA-F\\-]+}", commonWrapper(GetArticlesForUser)).Methods("GET")
+	router.HandleFunc("/su/save_server_state", commonWrapper(SaveServerState)).Methods("POST")
 	router.HandleFunc("/su/post_article", commonWrapper(AddArticleToFeed)).Methods("POST")
 	router.HandleFunc("/su/get_feeds_of_user/{suid:[0-9a-fA-F\\-]+}/{uid:[0-9a-fA-F\\-]+}", commonWrapper(GetFeedsOfUser)).Methods("GET")
 	//router.HandleFunc("/su/get_users_of_feed/{suid:[0-9a-fA-F\\-]+}/{fid:[0-9a-fA-F\\-]+}", commonWrapper(GetUsersOfFeed)).Methods("GET")
